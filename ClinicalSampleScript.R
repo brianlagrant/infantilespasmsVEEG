@@ -166,6 +166,40 @@ gghourclinicalpercent
 
 table(spasms$HourOnset)
 
+#changing x-axis to noon-noon
+
+spasms$HourOnset2
+spasms$HourOnset2[spasms$HourOnset==12] <- 0
+spasms$HourOnset2[spasms$HourOnset==13] <- 1
+spasms$HourOnset2[spasms$HourOnset==14] <- 2
+spasms$HourOnset2[spasms$HourOnset==15] <- 3
+spasms$HourOnset2[spasms$HourOnset==16] <- 4
+spasms$HourOnset2[spasms$HourOnset==17] <- 5
+spasms$HourOnset2[spasms$HourOnset==18] <- 6
+spasms$HourOnset2[spasms$HourOnset==19] <- 7
+spasms$HourOnset2[spasms$HourOnset==20] <- 8
+spasms$HourOnset2[spasms$HourOnset==21] <- 9
+spasms$HourOnset2[spasms$HourOnset==22] <- 10
+spasms$HourOnset2[spasms$HourOnset==23] <- 11
+spasms$HourOnset2[spasms$HourOnset==0] <- 12
+spasms$HourOnset2[spasms$HourOnset==1] <- 13
+spasms$HourOnset2[spasms$HourOnset==2] <- 14
+spasms$HourOnset2[spasms$HourOnset==3] <- 15
+spasms$HourOnset2[spasms$HourOnset==4] <- 16
+spasms$HourOnset2[spasms$HourOnset==5] <- 17
+spasms$HourOnset2[spasms$HourOnset==6] <- 18
+spasms$HourOnset2[spasms$HourOnset==7] <- 19
+spasms$HourOnset2[spasms$HourOnset==8] <- 20
+spasms$HourOnset2[spasms$HourOnset==9] <- 21
+spasms$HourOnset2[spasms$HourOnset==10] <- 22
+spasms$HourOnset2[spasms$HourOnset==11] <- 23
+
+gghourclinicalpercent <- ggplot(data = spasms, aes(spasms$HourOnset2)) + geom_histogram(aes(y=..count../sum(..count..)), breaks=seq(-1,24, by=1), col="black", fill=rgb(0,.46,.75), alpha = 0.8) + labs(title="Spasms by Hour of Day", y="Relative frequency", x = "Hour of day") + theme_bw()
+gghourclinicalpercent <- gghourclinicalpercent + scale_x_continuous(breaks = c(-1,5,11,17,24), labels=c("12", "18",  "0", "6", "12"))
+gghourclinicalpercent <- gghourclinicalpercent + theme(text = element_text(size=42)) + scale_y_continuous(lim = c(0,0.15), labels = scales::percent)
+gghourclinicalpercent
+
+
 #for density plot recode 16-23 1-8 and 0-9 as 9-17
 
 spasms$editedhour
