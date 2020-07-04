@@ -155,6 +155,7 @@ gghour <- gghour + scale_x_continuous(breaks = c(-1,5,11,17,24), labels=c("0", "
 gghour <- gghour + theme(text = element_text(size=40))
 gghour
 table(seizure_ISexclude0spasms$Hours)
+sum(table(seizure_ISexclude0spasms$Hours))
 timestable  <- data.frame(table(seizure_ISexclude0spasms$Time))
 
 library(lubridate)
@@ -192,6 +193,26 @@ table(seizure_ISexclude0spasms$Hours)
 sum(seizure_ISexclude0spasms$type_ISSpasmNum)
 binom.test(53978, 226932, p=0.3333, alternative = c("two.sided"), conf.level = 0.95)
 
+#using night time as 9-9
+seizure_IS$Night2
+seizure_IS$Night2 <- 0
+table(seizure_IS$Night2)
+seizure_IS$Night2[seizure_IS$Hours < 9] <- 1
+seizure_IS$Night2[seizure_IS$Hours > 20] <- 1
+table(seizure_IS$Night2)
+
+seizure_ISexclude0spasms=subset(seizure_IS, type_ISSpasmNum > 0)
+seizure_ISNighttime2=subset(seizure_ISexclude0spasms, Night2==1)
+seizure_ISDaytime2=subset(seizure_ISexclude0spasms, Night2==0)
+sum(seizure_ISNighttime2$type_ISSpasmNum)
+sum(seizure_ISDaytime2$type_ISSpasmNum)
+
+
+table(seizure_IS$Hours)
+table(seizure_ISexclude0spasms$Hours)
+sum(seizure_ISexclude0spasms$type_ISSpasmNum)
+binom.test(99035, 226932, p=0.552, alternative = c("two.sided"), conf.level = 0.95)
+
 library(plyr)
 countbyid <- count(seizure_IS,c('Unlinked_ID'))
 countbyid
@@ -201,28 +222,7 @@ countbyid$group[countbyid$freq > 100] <- 3
 countbyid
 table(countbyid$group)
 
-#Time of year histogram
 
-head(seizure_IS$Date)
-seizure_IS$ModifiedDate <- as.Date(seizure_IS$Date, "%m/%d/%Y")
-head(seizure_IS$ModifiedDate)
-seizure_IS$Month <- strftime(seizure_IS$ModifiedDate, "%m")
-head(seizure_IS$Month)
-table(seizure_IS$Month)
-seizure_IS$Month <- as.numeric(seizure_IS$Month)
-table(seizure_IS$Month)
-hist(seizure_IS$Month, xlim=c(1,12), ylim=c(0,3000))
-
-#By year histogram
-head(seizure_IS$Date)
-seizure_IS$ModifiedYear <- as.Date(seizure_IS$Date, "%m/%d/%Y")
-head(seizure_IS$ModifiedYear)
-seizure_IS$Year <- strftime(seizure_IS$ModifiedYear, "%Y")
-head(seizure_IS$Year)
-table(seizure_IS$Year)
-seizure_IS$Year <- as.numeric(seizure_IS$Year)
-table(seizure_IS$Year)
-hist(seizure_IS$Year, ylim=c(0,10000))
 
 #correlation between spasm number and spasm time
 
@@ -246,38 +246,6 @@ library(tidyverse)
 library(dplyr)
 completedata %>% distinct(Unlinked_ID, Gender) %>% count(Gender) 
 
-#looking at evolution
-evolutiondata <- subset(seizuredata, Unlinked_ID %in% countbyid$Unlinked_ID)
-unique(evolutiondata$Unlinked_ID)
-
-seizuresbyperson <- evolutiondata %>% distinct(type, Unlinked_ID) %>% count(Unlinked_ID) 
-seizuresbyperson
-
-seizuretypenumbers <- evolutiondata %>% distinct(type, Unlinked_ID) %>% count(type) 
-seizuretypenumbers
-
-
-evolutiondata$n
-evolutiondata$n <- 0
-evolution2 <- merge(evolutiondata, seizuresbyperson, by = "Unlinked_ID", all.x = TRUE)
-evolution2$n.x <- ifelse(is.na(evolution2$n.y), evolution2$n.x, evolution2$n.y)
-evolution2$n.y <- NULL
-#so n.x represents number of unique seizure types per person
-
-evolutioncountfinial <- evolution2 %>% distinct(Unlinked_ID, n.x) %>% count(n.x) 
-sum(evolutioncountfinial$n)
-
-evolutionseizuregroup <- merge(evolution2, countbyid, by = "Unlinked_ID", all.x = TRUE)
-unique(evolutionseizuregroup$group)
-
-tablenumberseizures <- evolutionseizuregroup %>%
-  group_by(Unlinked_ID) %>%
-  slice(1L)
-
-mean(tablenumberseizures$n.x)
-sd(tablenumberseizures$n.x)
-median(tablenumberseizures$n.x)
-quantile(tablenumberseizures$n.x, c(0.25, 0.75))
 
 #looking at comorbidities in combined data
 unique(completedata$Congenital_Condition)
@@ -770,6 +738,45 @@ ggspasmshour
 
 ggspasmshourpercent <- ggplot(data = spasmsbyhourexpanded, aes(Category)) + geom_histogram(aes(y=..count../sum(..count..)), breaks=seq(-1,24, by=1), col="black", fill=rgb(0,.46,.75), alpha = 0.8) + labs(title="Spasms by Hour of Day", y="Relative Frequency", x = "Hour of day") + theme_bw()
 ggspasmshourpercent <- ggspasmshourpercent + scale_x_continuous(breaks = c(-1,5,11,17,24), labels=c("0", "6",  "12", "18", "24"))
+ggspasmshourpercent <- ggspasmshourpercent + theme(text = element_text(size=42)) + scale_y_continuous(lim = c(0,0.15), labels = scales::percent)
+ggspasmshourpercent
+
+table(spasmsbyhourexpanded$Category)
+
+#changing x-axis to noon-noon
+
+spasmsbyhourexpanded$Category2
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==12] <- 0
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==13] <- 1
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==14] <- 2
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==15] <- 3
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==16] <- 4
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==17] <- 5
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==18] <- 6
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==19] <- 7
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==20] <- 8
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==21] <- 9
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==22] <- 10
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==23] <- 11
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==0] <- 12
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==1] <- 13
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==2] <- 14
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==3] <- 15
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==4] <- 16
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==5] <- 17
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==6] <- 18
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==7] <- 19
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==8] <- 20
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==9] <- 21
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==10] <- 22
+spasmsbyhourexpanded$Category2[spasmsbyhourexpanded$Category==11] <- 23
+
+table(spasmsbyhourexpanded$Category)
+table(spasmsbyhourexpanded$Category2)
+
+
+ggspasmshourpercent <- ggplot(data = spasmsbyhourexpanded, aes(Category2)) + geom_histogram(aes(y=..count../sum(..count..)), breaks=seq(-1,24, by=1), col="black", fill=rgb(0,.46,.75), alpha = 0.8) + labs(title="Spasms by Hour of Day", y="Relative Frequency", x = "Hour of day") + theme_bw()
+ggspasmshourpercent <- ggspasmshourpercent + scale_x_continuous(breaks = c(-1,5,11,17,24), labels=c("12", "18",  "0", "6", "12"))
 ggspasmshourpercent <- ggspasmshourpercent + theme(text = element_text(size=42)) + scale_y_continuous(lim = c(0,0.15), labels = scales::percent)
 ggspasmshourpercent
 
