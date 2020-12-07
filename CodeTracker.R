@@ -12,6 +12,28 @@ attach(seizuredata)
 seizure_IS <- seizuredata[type=="Infantile Spasms (cluster)",]
 detach(seizuredata)
 
+#Time of year histogram
+
+head(seizure_IS$Date)
+seizure_IS$ModifiedDate <- as.Date(seizure_IS$Date, "%m/%d/%Y")
+head(seizure_IS$ModifiedDate)
+seizure_IS$Month <- strftime(seizure_IS$ModifiedDate, "%m")
+head(seizure_IS$Month)
+table(seizure_IS$Month)
+seizure_IS$Month <- as.numeric(seizure_IS$Month)
+table(seizure_IS$Month)
+hist(seizure_IS$Month, xlim=c(1,12), ylim=c(0,3000))
+
+#By year histogram
+head(seizure_IS$Date)
+seizure_IS$ModifiedYear <- as.Date(seizure_IS$Date, "%m/%d/%Y")
+head(seizure_IS$ModifiedYear)
+seizure_IS$Year <- strftime(seizure_IS$ModifiedYear, "%Y")
+head(seizure_IS$Year)
+table(seizure_IS$Year)
+seizure_IS$Year <- as.numeric(seizure_IS$Year)
+table(seizure_IS$Year)
+hist(seizure_IS$Year, ylim=c(0,10000))
 
 #measuring total time of episodes
 seizure_IS$totaltime=((seizure_IS$length_hr*3600)+(seizure_IS$length_min*60)+(seizure_IS$length_sec))
@@ -83,6 +105,26 @@ median(seizure_IS$type_ISSpasmNum, na.rm = TRUE)
 quantile(seizure_IS$type_ISSpasmNum, c(0.25, 0.5, 0.75), na.rm=TRUE)
 table2 <- table(seizure_IS$type_ISSpasmNum)
 sort(table2, descending=TRUE)
+
+#looking at 0s for cluster duration
+zerosecondcluster=subset(seizure_IS, totaltime==0)
+table(zerosecondcluster$Hours)
+zerosecondcluster <- zerosecondcluster[order(as.Date(zerosecondcluster$Date_Time, format = "%m/%d/%Y %H:%M", descending = FALSE)),]
+zerosecondcluster$DateTimeConverted <- as.POSIXct(zerosecondcluster$Date_Time, format="%m/%d/%Y %H:%M")
+library(data.table)
+zerodatatable<-data.table(zerosecondcluster)
+
+zerodatatable[ , diff := DateTimeConverted - shift(DateTimeConverted), by = Unlinked_ID] 
+unique(zerodatatable$Unlinked_ID)
+table(zerodatatable$diff)
+colSums(!is.na(zerodatatable))
+mean(zerodatatable$diff, na.rm = TRUE)
+quantile(zerodatatable$diff, c(0.25, 0.5, 0.75), na.rm = TRUE)
+
+zerodatatable2min=subset(zerodatatable, diff < 121 & diff > -121)
+table(zerodatatable2min$diff)
+unique(zerodatatable2min$Unlinked_ID)
+table(zerodatatable2min$Unlinked_ID)
 
 
 #ggplot of duration
@@ -212,6 +254,11 @@ table(seizure_IS$Hours)
 table(seizure_ISexclude0spasms$Hours)
 sum(seizure_ISexclude0spasms$type_ISSpasmNum)
 binom.test(99035, 226932, p=0.552, alternative = c("two.sided"), conf.level = 0.95)
+
+seizure_ISexclude0time2=subset(seizure_IS, totaltime > 0)
+table(seizure_ISexclude0time2$Hours)
+table(seizure_ISexclude0time2$type_ISSpasmNum)
+
 
 library(plyr)
 countbyid <- count(seizure_IS,c('Unlinked_ID'))
@@ -398,10 +445,10 @@ wilcox.test(n.x ~ as.factor(group), data=excludegroup3meds)
 wilcox.test(n.x ~ as.factor(group), data=excludegroup2meds)
 
 #age of each child
+library(dplyr)
 birthdatelist <- completedata %>% distinct(Unlinked_ID, Birth_Date) %>% count(Birth_Date) 
 birthdatelist
 
-library(dplyr)
 tablefirstepisode <- seizure_IS %>%
   group_by(Unlinked_ID) %>%
   arrange(ModifiedDate) %>%
@@ -420,19 +467,34 @@ agedata$age <- as.Date(as.character(agedata$ModifiedDateCorrected), format="%Y-%
   as.Date(as.character(agedata$ModifiedBirthYear), format="%Y-%m-%d")
 
 #anova for age
+
 dataage <- merge(countbyid, agedata, by = "Unlinked_ID", all.x = TRUE)
 dataageexclude=subset(dataage, age > 0)
-dataageexclude$ageless2
-dataageexclude$ageless2[dataageexclude$age < 731] <- 1
-dataageexclude$ageless2[dataageexclude$age > 730] <- 0
+dataageexclude$ageless1
+dataageexclude$ageless1[dataageexclude$age < 366] <- 1
+dataageexclude$ageless1[dataageexclude$age > 365] <- 0
+library(plyr)
 groupstatage<-ddply(dataageexclude, .(group),summarise,
-                     meansc= mean(age), sd = sd(age), mediansc=(median(age)), TwentyFifth= quantile(totaltime, c(0.25)), SeventyFifth= quantile(totaltime, c(0.75)),  nless2= length(ageless2[ageless2==1]), nmore2= length(ageless2[ageless2==0]))
+                     meansc= mean(age), sd = sd(age), mediansc=(median(age)), TwentyFifth= quantile(totaltime, c(0.25)), SeventyFifth= quantile(totaltime, c(0.75)),  nless1= length(ageless1[ageless1==1]), nmore1= length(ageless1[ageless1==0]))
 median(dataageexclude$age)
 anovaage <- aov(age ~ group, data=dataageexclude)
 summary(anovaage)
 
+obsfreqage <- matrix(c(25,111, 42,77, 19,28),nrow=2,ncol=3)
+chisq.test(obsfreqage)
+
+obsfreqage <- matrix(c(25,111, 42,77),nrow=2,ncol=2)
+chisq.test(obsfreqage)
+
+obsfreqage <- matrix(c(42,77, 19,28),nrow=2,ncol=2)
+chisq.test(obsfreqage)
+
+obsfreqage <- matrix(c(25,111, 19,28),nrow=2,ncol=2)
+chisq.test(obsfreqage)
+
 #excluding negative ages
 agedataexcludeoutliers=subset(agedata, age > 0)
+agedata18=subset(agedata, age > 6569)
 
 hist(as.numeric(agedataexcludeoutliers$age), breaks = c(0, 60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 660, 720, 780, 840, 900, 960, 1020, 1080, 1140, 1200, 1260, 1320, 1380, 1440, 17000), xlim = c(0,1500))
 hist(as.numeric(agedataexcludeoutliers$age), breaks = c(0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360, 390, 420, 450, 480, 510, 540, 570, 600, 630, 660, 690, 720, 750, 780, 810, 840, 870, 900, 930, 960, 990, 1020, 1050, 1080, 1110, 1140, 1179, 1200, 1230, 1260, 1290, 1320, 1350, 1380, 1410, 1440, 1470, 1500, 17000), xlim = c(0,1500), xlab = "Age in days (bins of 30 days)", main = "Histogram of age")
@@ -447,10 +509,555 @@ table(agedataexcludeoutliers$ModifiedBirthYear)
 agedata$BirthMonthDay <- strftime(agedata$ModifiedBirthYear, "%m-%d")
 table(agedata$BirthMonthDay)
 
-#excluding years below 2004
-agedataexcludealloutliers=subset(agedataexcludeoutliers, as.numeric(BirthYear) > 2005)
-median(agedataexcludealloutliers$age)
-quantile(agedataexcludealloutliers$age, c(0.25, 0.75))
+#only children less than one and looking at stats
+agedatalessone=subset(agedataexcludeoutliers, age < 366)
+table(agedatalessone$Unlinked_ID)
+median(agedatalessone$age)
+quantile(agedatalessone$age, c(0.25, 0.75))
+unique(agedatalessone$Unlinked_ID)
+
+library(dplyr)
+
+agedatalessone %>% distinct(Unlinked_ID, Gender) %>% count(Gender) 
+
+unique(agedatalessone$Congenital_Condition)
+agedatalessone %>% distinct(Unlinked_ID, Congenital_Condition) %>% count(Congenital_Condition) 
+
+
+unique(agedatalessone$Stroke)
+agedatalessone %>% distinct(Unlinked_ID, Stroke) %>% count(Stroke) 
+
+unique(agedatalessone$Metabolic_Disorder)
+agedatalessone %>% distinct(Unlinked_ID, Metabolic_Disorder) %>% count(Metabolic_Disorder) 
+
+unique(agedatalessone$Genetic_Abnormalities)
+agedatalessone %>% distinct(Unlinked_ID, Genetic_Abnormalities) %>% count(Genetic_Abnormalities) 
+
+unique(agedatalessone$Infectious_Diseases)
+agedatalessone %>% distinct(Unlinked_ID, Infectious_Diseases) %>% count(Infectious_Diseases) 
+
+unique(agedatalessone$Lack_Of_Oxygen_During_Birth)
+agedatalessone %>% distinct(Unlinked_ID, Lack_Of_Oxygen_During_Birth) %>% count(Lack_Of_Oxygen_During_Birth) 
+
+unique(agedatalessone$Maternal_Drug_Or_Alcohol_Abuse)
+agedatalessone %>% distinct(Unlinked_ID, Maternal_Drug_Or_Alcohol_Abuse) %>% count(Maternal_Drug_Or_Alcohol_Abuse) 
+
+unique(agedatalessone$Brain_Injury_During_Fetal_Development)
+agedatalessone %>% distinct(Unlinked_ID, Brain_Injury_During_Fetal_Development) %>% count(Brain_Injury_During_Fetal_Development) 
+
+unique(agedatalessone$Electrolyte_Disturbances)
+agedatalessone %>% distinct(Unlinked_ID, Electrolyte_Disturbances) %>% count(Electrolyte_Disturbances) 
+
+unique(agedatalessone$Brain_Malformations)
+agedatalessone %>% distinct(Unlinked_ID, Brain_Malformations) %>% count(Brain_Malformations) 
+
+unique(agedatalessone$Brain_Trauma)
+agedatalessone %>% distinct(Unlinked_ID, Brain_Trauma) %>% count(Brain_Trauma) 
+
+
+fulldatausedmeds=subset(fulldatausedmeds, Unlinked_ID %in% agedatalessone$Unlinked_ID)
+
+randomtable <- unique(fulldatausedmeds$Med_Name_Code)
+unique(fulldatausedmeds$Unlinked_ID)
+medicationlist <- fulldatausedmeds %>% distinct(Unlinked_ID, Med_Name_Code) %>% count(Med_Name_Code) 
+medicationlist
+sum(medicationlist$n)
+
+fulldatausedmeds2=subset(fulldatausedmeds, Daily_Dose > 0)
+
+medicationlistedited <- fulldatausedmeds2 %>% distinct(Unlinked_ID, Med_Name_Code) %>% count(Med_Name_Code) 
+
+medicationlist2usedmeds <- fulldatausedmeds2 %>% distinct(Unlinked_ID, Med_Name_Code) %>% count(Unlinked_ID) 
+medicationlist2usedmeds
+
+fulldatausedmeds$n
+fulldatausedmeds$n <- 0
+fulldata2 <- merge(fulldatausedmeds, medicationlist2usedmeds, by = "Unlinked_ID", all.x = TRUE)
+fulldata2$n.x <- ifelse(is.na(fulldata2$n.y), fulldata2$n.x, fulldata2$n.y)
+fulldata2$n.y <- NULL
+#so n.x represents number of unique meds tried per person
+
+medicationlistfinal <- fulldata2 %>% distinct(Unlinked_ID, n.x) %>% count(n.x) 
+sum(medicationlistfinal$n)
+
+medprofileseizuregroup <- merge(fulldata2, countbyid, by = "Unlinked_ID", all.x = TRUE)
+unique(medprofileseizuregroup$group)
+medprofileseizuregroup %>% distinct(Unlinked_ID, group) %>% count(group) 
+medicationlist2 <- medprofileseizuregroup %>% distinct(Unlinked_ID, Med_Name_Code) %>% count(Med_Name_Code) 
+medicationlist2
+
+tablenumbermeds <- medprofileseizuregroup %>%
+  group_by(Unlinked_ID) %>%
+  slice(1L)
+
+mean(tablenumbermeds$n.x)
+sd(tablenumbermeds$n.x)
+median(tablenumbermeds$n.x)
+quantile(tablenumbermeds$n.x, c(0.25, 0.75))
+
+
+
+agelessonefulldata=subset(seizure_IS, Unlinked_ID %in% agedatalessone$Unlinked_ID)
+unique(agelessonefulldata$Unlinked_ID)
+agelessonefulldata <- merge(agelessonefulldata, profiledata, by = "Unlinked_ID", all.x = TRUE)
+unique(agelessonefulldata$Unlinked_ID)
+
+agelessoneexclude1spasm=subset(agelessonefulldata, type_ISSpasmNum > 1)
+mean(agelessoneexclude1spasm$type_ISSpasmNum, na.rm = TRUE)
+median(agelessoneexclude1spasm$type_ISSpasmNum, na.rm = TRUE)
+quantile(agelessoneexclude1spasm$type_ISSpasmNum, c(0.25, 0.5, 0.75), na.rm=TRUE)
+table(agelessoneexclude1spasm$type_ISSpasmNum)
+sd(agelessoneexclude1spasm$type_ISSpasmNum, na.rm = TRUE)
+class(agelessoneexclude1spasm$type_ISSpasmNum)
+Modes(agelessoneexclude1spasm$type_ISSpasmNum)
+table(agelessoneexclude1spasm$type_ISSpasmNum)
+table(agelessoneexclude1spasm$type_ISSpasmNum)
+
+agelessoneexclude0time=subset(agelessoneexclude1spasm, totaltime > 0)
+mean(agelessoneexclude0time$totaltime)
+sd(agelessoneexclude0time$totaltime)
+mean(agelessoneexclude0time$logtime)
+median(agelessoneexclude0time$totaltime)
+quantile(agelessoneexclude0time$totaltime, c(0.25, 0.5, 0.75))
+Modes(agelessoneexclude0time$totaltime)
+
+agelessoneexclude0spasms=subset(agelessonefulldata, type_ISSpasmNum > 0)
+sum(agelessoneexclude0spasms$type_ISSpasmNum)
+agelessone1spasm=subset(agelessoneexclude0spasms, type_ISSpasmNum==1)
+#so 820 out of 82,167 are individual spasms for this group
+
+ggtimepercent1year <- ggplot(data = agelessoneexclude0time, aes(logtime)) + geom_histogram(aes(y=..count../sum(..count..)), breaks=seq(0,4,by=0.1), col="black", fill=rgb(0,.46,.75), alpha = 0.8) + labs(title="Duration of Cluster", y="Relative frequency", x="Time") + theme_bw()
+ggtimepercent1year <- ggtimepercent1year + scale_x_continuous(breaks = c(0, 0.30, 0.48, 0.60, 0.70, 0.78, 0.85, 0.90, 0.95, 1, 1.3, 1.48, 1.60, 1.70, 1.78, 1.85, 1.90, 1.95, 2, 2.3, 2.48, 2.60, 2.70, 2.78, 2.85, 2.90, 2.95, 3, 3.3, 3.48, 3.60, 3.70, 3.78, 3.85, 3.90, 3.95), labels=c("1s", " ", " ", " ", " ", " ", " ", " ", " ", "10s", " ", " ", " ", " ", " ", " ", " ", " ", "100s"," ", " ", " ", " ", " ", " ", " ", " ", "1000s", " ", " ", " ", " ", " ", " ", " ", " "))
+ggtimepercent1year <- ggtimepercent1year + theme(text = element_text(size=42)) + scale_y_continuous(lim = c(0,0.15), labels = scales::percent)
+ggtimepercent1year
+
+ggspasmspercent1year <- ggplot(data = agelessoneexclude1spasm, aes(agelessoneexclude1spasm$type_ISSpasmNum)) + geom_histogram(aes(y=..count../sum(..count..)), breaks=seq(1,50, by=1), col="black", fill=rgb(0,.46,.75), alpha = 0.8) + labs(title="Spasms per Cluster", y="Relative frequency", x = "Number of spasms") + theme_bw()
+ggspasmspercent1year <- ggspasmspercent1year + scale_x_continuous(breaks = c(0,5,10,15,20,25,30,35,40,45,50), labels=c("0", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50"))
+ggspasmspercent1year <- ggspasmspercent1year + theme(text = element_text(size=42)) + scale_y_continuous(lim = c(0,0.1), labels = scales::percent)
+ggspasmspercent1year
+
+spasmsbyhour1year <- aggregate(agelessoneexclude0spasms$type_ISSpasmNum, by=list(Category=agelessoneexclude0spasms$Hours), FUN=sum)
+sum(spasmsbyhour1year$x)
+
+#spasms by individual aggregate
+
+detach("package:plyr", unload=TRUE)
+
+spasmsbyhour1yearbyuser <- aggregate(agelessoneexclude0spasms$type_ISSpasmNum, by=list(Category=agelessoneexclude0spasms$Unlinked_ID), FUN=sum)
+spasmsbyhour1yearbyuser <- spasmsbyhour1yearbyuser %>% 
+  rename(Unlinked_ID = Category)
+
+spasmsbyhour1yearbyuser2 <- agelessoneexclude0spasms %>% group_by(agelessoneexclude0spasms$Unlinked_ID, Hours) %>% summarise(type_ISSpasmNum = sum(type_ISSpasmNum))
+spasmsbyhour1yearbyuser2 <- spasmsbyhour1yearbyuser2 %>% 
+  rename(
+    Unlinked_ID = "agelessoneexclude0spasms$Unlinked_ID"
+  )
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==0)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==1)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==2)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==3)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==4)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==5)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==6)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==7)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==8)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==9)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==10)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==11)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==12)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==13)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==14)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==15)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==16)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==17)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==18)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==19)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==20)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==21)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==22)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+spasmsbyhour1yeartime0=subset(spasmsbyhour1yearbyuser2, Hours==23)
+length(unique(spasmsbyhour1yeartime0$Unlinked_ID))
+
+under1percentatleast1spasmbyhour <- data.table(c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23), c(13,18,18,21,21,18,28,29,34,34,34,31,25,29,33,32,32,33,30,29,29,22,19,14))
+under1percentatleast1spasmbyhour$Percentage=((under1percentatleast1spasmbyhour$V2)/86)
+
+under1percentatleast1spasmbyhour$HourChanged
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==12] <- 0
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==13] <- 1
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==14] <- 2
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==15] <- 3
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==16] <- 4
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==17] <- 5
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==18] <- 6
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==19] <- 7
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==20] <- 8
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==21] <- 9
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==22] <- 10
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==23] <- 11
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==0] <- 12
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==1] <- 13
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==2] <- 14
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==3] <- 15
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==4] <- 16
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==5] <- 17
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==6] <- 18
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==7] <- 19
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==8] <- 20
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==9] <- 21
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==10] <- 22
+under1percentatleast1spasmbyhour$HourChanged[under1percentatleast1spasmbyhour$V1==11] <- 23
+
+ggspasmshourpercent1yearbyuser <- ggplot(data = under1percentatleast1spasmbyhour, aes(x=HourChanged, y=Percentage)) + geom_bar(stat="identity", fill = rgb(0,.46,.75), alpha = 0.8, color="black") + labs(title="Proportion with at Least One Spasm", y="Proportion", x = "Hour of day") + theme_bw() + scale_y_continuous(lim = c(0,0.8)) + scale_x_continuous(breaks = c(-1,5,11,17,24), labels=c("12", "18",  "0", "6", "12"))
+ggspasmshourpercent1yearbyuser<- ggspasmshourpercent1yearbyuser + theme(text = element_text(size=42))
+ggspasmshourpercent1yearbyuser
+
+mergedusercounts1year <- merge(spasmsbyhour1yearbyuser2, spasmsbyhour1yearbyuser, by = "Unlinked_ID", all.x = TRUE)
+mergedusercounts1year$PercentByHour=((mergedusercounts1year$type_ISSpasmNum)/(mergedusercounts1year$x))
+
+mergedusercounts1yearfinal <- aggregate(as.numeric(mergedusercounts1year$PercentByHour), list(mergedusercounts1year$Hours), mean)
+mergedusercounts1yearfinal <- mergedusercounts1yearfinal %>% 
+  rename(
+    mean = x
+  )
+
+ggspasmshourpercent1yearbyuser <- ggplot(data = mergedusercounts1yearfinal, aes(x=Group.1, y=mean)) + geom_bar(stat="identity", fill = rgb(0,.46,.75), alpha = 0.8) + labs(title="Relative Abundance of Spasms for Each User by Hour of Day", y="Relative Abundance", x = "Hour of day") + theme_bw()
+ggspasmshourpercent1yearbyuser
+
+#for whole group
+spasmsbyhourbyuser <- aggregate(seizure_ISexclude0spasms$type_ISSpasmNum, by=list(Category=seizure_ISexclude0spasms$Unlinked_ID), FUN=sum)
+spasmsbyhourbyuser <- spasmsbyhourbyuser %>% 
+  rename(
+    Unlinked_ID = Category
+  )
+
+spasmsbyhourbyuser2 <- seizure_ISexclude0spasms %>% group_by(seizure_ISexclude0spasms$Unlinked_ID, Hours) %>% summarise(type_ISSpasmNum = sum(type_ISSpasmNum))
+spasmsbyhourbyuser2 <- spasmsbyhourbyuser2 %>% 
+  rename(
+    Unlinked_ID = "seizure_ISexclude0spasms$Unlinked_ID"
+  )
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==0)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==1)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==2)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==3)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==4)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==5)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==6)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==7)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==8)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==9)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==10)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==11)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==12)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==13)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==14)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==15)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==16)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==17)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==18)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==19)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==20)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==21)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==22)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+spasmsbyhourtime0=subset(spasmsbyhourbyuser2, Hours==23)
+length(unique(spasmsbyhourtime0$Unlinked_ID))
+
+percentatleast1spasmbyhour <- data.table(c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23), c(26,45,37,40,38,39,55,67,77,71,70,71,58,69,67,66,68,67,66,65,59,55,45,32))
+percentatleast1spasmbyhour$Percentage=((percentatleast1spasmbyhour$V2)/314)
+
+percentatleast1spasmbyhour$HourChanged
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==12] <- 0
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==13] <- 1
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==14] <- 2
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==15] <- 3
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==16] <- 4
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==17] <- 5
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==18] <- 6
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==19] <- 7
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==20] <- 8
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==21] <- 9
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==22] <- 10
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==23] <- 11
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==0] <- 12
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==1] <- 13
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==2] <- 14
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==3] <- 15
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==4] <- 16
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==5] <- 17
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==6] <- 18
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==7] <- 19
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==8] <- 20
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==9] <- 21
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==10] <- 22
+percentatleast1spasmbyhour$HourChanged[percentatleast1spasmbyhour$V1==11] <- 23
+
+ggspasmshourpercentbyuser <- ggplot(data = percentatleast1spasmbyhour, aes(x=HourChanged, y=Percentage)) + geom_bar(stat="identity", fill = rgb(0,.46,.75), alpha = 0.8, color="black") + labs(title="Proportion with at Least One Spasm", y="Proportion", x = "Hour of day") + theme_bw() + scale_y_continuous(lim = c(0,0.8)) + scale_x_continuous(breaks = c(-1,5,11,17,24), labels=c("12", "18",  "0", "6", "12"))
+ggspasmshourpercentbyuser<- ggspasmshourpercentbyuser + theme(text = element_text(size=42))
+ggspasmshourpercentbyuser
+
+mergedusercounts <- merge(spasmsbyhourbyuser2, spasmsbyhourbyuser, by = "Unlinked_ID", all.x = TRUE)
+mergedusercounts$PercentByHour=((mergedusercounts$type_ISSpasmNum)/(mergedusercounts$x))
+
+mergedusercountsfinal <- aggregate(as.numeric(mergedusercounts$PercentByHour), list(mergedusercounts$Hours), mean)
+mergedusercountsfinal <- mergedusercountsfinal %>% 
+  rename(
+    mean = x
+  )
+
+ggspasmshourpercentbyuser <- ggplot(data = mergedusercountsfinal, aes(x=Group.1, y=mean)) + geom_bar(stat="identity", fill = rgb(0,.46,.75), alpha = 0.8) + labs(title="Relative Abundance of Spasms for Each User by Hour of Day", y="Relative Abundance", x = "Hour of day") + theme_bw()
+ggspasmshourpercentbyuser
+
+library(vcdExtra)
+spasmsbyhourexpanded1year <- expand.dft(spasmsbyhour1year, freq="x")
+spasmsbyhourexpanded1year$Category2
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==12] <- 0
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==13] <- 1
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==14] <- 2
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==15] <- 3
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==16] <- 4
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==17] <- 5
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==18] <- 6
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==19] <- 7
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==20] <- 8
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==21] <- 9
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==22] <- 10
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==23] <- 11
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==0] <- 12
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==1] <- 13
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==2] <- 14
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==3] <- 15
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==4] <- 16
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==5] <- 17
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==6] <- 18
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==7] <- 19
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==8] <- 20
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==9] <- 21
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==10] <- 22
+spasmsbyhourexpanded1year$Category2[spasmsbyhourexpanded1year$Category==11] <- 23
+
+table(spasmsbyhourexpanded1year$Category)
+table(spasmsbyhourexpanded1year$Category2)
+
+ggspasmshourpercent1year <- ggplot(data = spasmsbyhourexpanded1year, aes(Category2)) + geom_histogram(aes(y=..count../sum(..count..)), breaks=seq(-1,24, by=1), col="black", fill=rgb(0,.46,.75), alpha = 0.8) + labs(title="Spasms by Hour of Day", y="Relative Frequency", x = "Hour of day") + theme_bw()
+ggspasmshourpercent1year <- ggspasmshourpercent1year + scale_x_continuous(breaks = c(-1,5,11,17,24), labels=c("12", "18",  "0", "6", "12"))
+ggspasmshourpercent1year <- ggspasmshourpercent1year + theme(text = element_text(size=42)) + scale_y_continuous(lim = c(0,0.15), labels = scales::percent)
+ggspasmshourpercent1year
+
+detach("package:plyr", unload=TRUE)
+library(tidyverse)
+library(dplyr)
+agelessonefulldata %>% distinct(Unlinked_ID, Gender) %>% count(Gender) 
+
+unique(agelessonefulldata$Congenital_Condition)
+agelessonefulldata %>% distinct(Unlinked_ID, Congenital_Condition) %>% count(Congenital_Condition) 
+
+#making cut sample for under 1
+
+agelessoneexclude0spasms$HourOnset <- as.numeric(format(strptime(agelessoneexclude0spasms$Time, format = "%H:%M" ) , "%H" ) )
+agelessoneexclude0spasms$MinuteOnset <- as.numeric(format(strptime(agelessoneexclude0spasms$Time, format = "%H:%M" ) , "%M" ) )
+agelessoneexclude0spasms$TimeFromMidnight=((agelessoneexclude0spasms$HourOnset*3600)+(agelessoneexclude0spasms$MinuteOnset*60))
+
+agelessonespasmscut=subset(agelessoneexclude0spasms, TimeFromMidnight > 76754 | TimeFromMidnight < 32400)
+spasmsbyhour1yearcut <- aggregate(agelessonespasmscut$type_ISSpasmNum, by=list(Category=agelessonespasmscut$Hours), FUN=sum)
+table(spasmsbyhour1yearcut$x)
+sum(spasmsbyhour1yearcut$x)
+
+table(agelessonespasmscut$Night)
+agelessonespasmscut$minsover30
+agelessonespasmscut$minsover30 <- 0
+agelessonespasmscut$minsover30[agelessonespasmscut$MinuteOnset > 29] <- 1
+table(agelessonespasmscut$HourOnset)
+
+agelessonespasmscut$editedhour
+agelessonespasmscut$editedhour[agelessonespasmscut$HourOnset==21] <- 6
+agelessonespasmscut$editedhour[agelessonespasmscut$HourOnset==22] <- 7
+agelessonespasmscut$editedhour[agelessonespasmscut$HourOnset==23] <- 8
+agelessonespasmscut$editedhour[agelessonespasmscut$HourOnset==0] <- 9
+agelessonespasmscut$editedhour[agelessonespasmscut$HourOnset==1] <- 10
+agelessonespasmscut$editedhour[agelessonespasmscut$HourOnset==2] <- 11
+agelessonespasmscut$editedhour[agelessonespasmscut$HourOnset==3] <- 12
+agelessonespasmscut$editedhour[agelessonespasmscut$HourOnset==4] <- 13
+agelessonespasmscut$editedhour[agelessonespasmscut$HourOnset==5] <- 14
+agelessonespasmscut$editedhour[agelessonespasmscut$HourOnset==6] <- 15
+agelessonespasmscut$editedhour[agelessonespasmscut$HourOnset==7] <- 16
+agelessonespasmscut$editedhour[agelessonespasmscut$HourOnset==8] <- 17
+table(agelessonespasmscut$editedhour)
+
+spasmsbyhourexpanded1year <- expand.dft(spasmsbyhour1year, freq="x")
+table(spasmsbyhourexpanded1year$Category)
+
+#first need to make file with 82167 spasms, 11432 are nighttime
+
+agelessoneDayNight <- data.frame("Number" = 1:70735, "Night" = c(0))
+agelessoneDayNight2 <- data.frame("Number" = 70736:82167, "Night" = c(1))
+agelessoneNightFinal <- rbind(agelessoneDayNight, agelessoneDayNight2)
+table(agelessoneNightFinal$Night)
+
+binom.test(11432, 82067, p=0.3333, alternative = c("two.sided"), conf.level = 0.95)
+binom.test(24671, 82067, p=0.552, alternative = c("two.sided"), conf.level = 0.95)
+
+
+#doing night for cut sample
+
+agelessoneNighttimeCut=subset(agelessonespasmscut, Night==1)
+agelessoneDaytimeCut=subset(agelessonespasmscut, Night==0)
+sum(agelessoneNighttimeCut$type_ISSpasmNum)
+sum(agelessoneDaytimeCut$type_ISSpasmNum)
+
+#first need to make file with 23361 spasms, 11432 are nighttime
+
+agelessoneDayNightCut <- data.frame("Number" = 1:11929, "Night" = c(0))
+agelessoneDayNightCut2 <- data.frame("Number" = 11930:23361, "Night" = c(1))
+agelessoneDayNightFinalCut <- rbind(agelessoneDayNightCut, agelessoneDayNightCut2)
+table(agelessoneDayNightFinalCut$Night)
+
+#percentage of individual spasms comparison, 820 are individual out of  82167 spasms
+agelessoneIndividual <- data.frame("Number" = 1:81347, "Individual" = c(0))
+agelessoneIndividual2 <- data.frame("Number" = 81348:82167, "Individual" = c(1))
+agelessoneIndividualFinal <- rbind(agelessoneIndividual, agelessoneIndividual2)
+table(agelessoneIndividualFinal$Individual)
+
+
+
+#only children more than one and looking at stats
+agedatamoreone=subset(agedataexcludeoutliers, age > 365)
+table(agedatamoreone$Unlinked_ID)
+median(agedatamoreone$age)
+quantile(agedatamoreone$age, c(0.25, 0.75))
+unique(agedatamoreone$Unlinked_ID)
+
+agemoreonefulldata=subset(seizure_IS, Unlinked_ID %in% agedatamoreone$Unlinked_ID)
+unique(agemoreonefulldata$Unlinked_ID)
+
+agemoreoneexclude1spasm=subset(agemoreonefulldata, type_ISSpasmNum > 1)
+mean(agemoreoneexclude1spasm$type_ISSpasmNum, na.rm = TRUE)
+median(agemoreoneexclude1spasm$type_ISSpasmNum, na.rm = TRUE)
+quantile(agemoreoneexclude1spasm$type_ISSpasmNum, c(0.25, 0.5, 0.75), na.rm=TRUE)
+sd(agemoreoneexclude1spasm$typeISSpasmNum, na.rm = TRUE)
+class(agemoreoneexclude1spasm$type_ISSpasmNum)
+Modes(agemoreoneexclude1spasm$type_ISSpasmNum)
+table(agemoreoneexclude1spasm$type_ISSpasmNum)
+
+agemoreoneexclude0time=subset(agemoreoneexclude1spasm, totaltime > 0)
+mean(agemoreoneexclude0time$totaltime)
+sd(agemoreoneexclude0time$totaltime)
+mean(agemoreoneexclude0time$logtime)
+median(agemoreoneexclude0time$totaltime)
+quantile(agemoreoneexclude0time$totaltime, c(0.25, 0.5, 0.75))
+Modes(agemoreoneexclude0time$totaltime)
+
+agemoreoneexclude0spasms=subset(agemoreonefulldata, type_ISSpasmNum > 0)
+sum(agemoreoneexclude0spasms$type_ISSpasmNum)
+agemoreone1spasm=subset(agemoreoneexclude0spasms, type_ISSpasmNum==1)
+#so 778 out of 144,439 are individual spasms for this group
+
+#using night time as 11-7
+agelessonefulldata$Night2
+agelessonefulldata$Night2 <- 0
+table(agelessonefulldata$Night2)
+agelessonefulldata$Night2[agelessonefulldata$Hours < 7] <- 1
+agelessonefulldata$Night2[agelessonefulldata$Hours==23] <- 1
+table(agelessonefulldata$Night2)
+
+agelessoneexclude0spasms=subset(agelessonefulldata, type_ISSpasmNum > 0)
+agelessoneNighttime=subset(agelessoneexclude0spasms, Night2==1)
+agelessoneDaytime=subset(agelessoneexclude0spasms, Night2==0)
+sum(agelessoneNighttime$type_ISSpasmNum)
+sum(agelessoneDaytime$type_ISSpasmNum)
+
 
 #number of unique users, formation of three groups, and demographic differences between groups
 unique(seizure_IS$Unlinked_ID)
@@ -472,6 +1079,20 @@ table(mergedprofilecounts$trauma)
 mergedprofilecounts$female2[mergedprofilecounts$Gender=="F"] <- 1
 mergedprofilecounts$female2[mergedprofilecounts$Gender=="M"] <- 0
 table(mergedprofilecounts$female2)
+mergedprofilecounts$stroke <- 1
+mergedprofilecounts$stroke[mergedprofilecounts$Stroke==""] <- 0
+mergedprofilecounts$metabolic <- 1
+mergedprofilecounts$metabolic[mergedprofilecounts$Metabolic_Disorder==""] <- 0
+mergedprofilecounts$infection <- 1
+mergedprofilecounts$infection[mergedprofilecounts$Infectious_Diseases==""] <- 0
+mergedprofilecounts$hypoxia <- 1
+mergedprofilecounts$hypoxia[mergedprofilecounts$Lack_Of_Oxygen_During_Birth==""] <- 0
+mergedprofilecounts$maternaldrug <- 1
+mergedprofilecounts$maternaldrug[mergedprofilecounts$Maternal_Drug_Or_Alcohol_Abuse==""] <- 0
+mergedprofilecounts$malform <- 1
+mergedprofilecounts$malform[mergedprofilecounts$Brain_Malformations==""] <- 0
+mergedprofilecounts$electrolyte <- 1
+mergedprofilecounts$electrolyte[mergedprofilecounts$Electrolyte_Disturbances==""] <- 0
 
 median(mergedprofilecounts$freq)
 quantile(mergedprofilecounts$freq, c(0.25, 0.75))
@@ -483,7 +1104,34 @@ groupstat<-ddply(mergedprofilecounts, .(group),summarise,
                  nfem= length(Gender[Gender=="F"]), 
                  nmale= length(Gender[Gender=="M"]),
                  percentfem= nfem/(nfem+nmale), nnotcongenital= length(Congenital_Condition[Congenital_Condition==""]),
-                 nnottrauma= length(Brain_Trauma[Brain_Trauma==""]))
+                 nnottrauma= length(Brain_Trauma[Brain_Trauma==""]), nnotstroke= length(Stroke[Stroke==""]), nnotmetabolic= length(Metabolic_Disorder[Metabolic_Disorder==""]),
+                 nnotinfection= length(Infectious_Diseases[Infectious_Diseases==""]), nnothypoxia= length(Lack_Of_Oxygen_During_Birth[Lack_Of_Oxygen_During_Birth==""]),
+                 nnotdrug= length(Maternal_Drug_Or_Alcohol_Abuse[Maternal_Drug_Or_Alcohol_Abuse==""]),  nnotmalform= length(Brain_Malformations[Brain_Malformations==""]),
+                 nnotelectrolyte= length(Electrolyte_Disturbances[Electrolyte_Disturbances==""]))
+
+obsfreqstroke <- matrix(c(4,140, 5,118, 0,47),nrow=2,ncol=3)
+chisq.test(obsfreqstroke)
+
+obsfreqmet <- matrix(c(4,140, 1,122, 0,47),nrow=2,ncol=3)
+chisq.test(obsfreqmet)
+
+obsfreqinfec <- matrix(c(6,138, 5,118, 1,46),nrow=2,ncol=3)
+chisq.test(obsfreqinfec)
+
+obsfreqhypox <- matrix(c(2,142, 5,118, 0,47),nrow=2,ncol=3)
+chisq.test(obsfreqhypox)
+
+obsfreqdrugabuse <- matrix(c(1,143, 3,120, 0,47),nrow=2,ncol=3)
+chisq.test(obsfreqdrugabuse)
+
+obsfreqmalform <- matrix(c(16,128, 17,106, 6,41),nrow=2,ncol=3)
+chisq.test(obsfreqmalform)
+
+obsfreqtrauma <- matrix(c(11,133, 14,109, 0,47),nrow=2,ncol=3)
+chisq.test(obsfreqtrauma)
+
+obsfreqelectro <- matrix(c(0,144, 1,122, 0,47),nrow=2,ncol=3)
+chisq.test(obsfreqelectro)
 
 groupquantitative <- merge(countbyid, seizure_IS, by = "Unlinked_ID", all.x = TRUE)
 groupquantitativeexclude1spasms=subset(groupquantitative, type_ISSpasmNum > 1)
@@ -797,3 +1445,80 @@ ggspasmsdensity <- ggspasmsdensity + labs(title="Density Plot of Spasms by Time 
 ggspasmsdensity <- ggspasmsdensity + theme(text = element_text(size=30))
 ggspasmsdensity
 
+#chi-square seizure comparisons
+obsfreqindividualspasms <- matrix(c(1603,223726, 820,81247, 44,491),nrow=2,ncol=3)
+chisq.test(obsfreqindividualspasms)
+
+obsfreqindividualspasms <- matrix(c(820,81247, 44,491),nrow=2,ncol=2)
+chisq.test(obsfreqindividualspasms)
+
+obsfreqindividualspasms <- matrix(c(1603,223726, 44,491),nrow=2,ncol=2)
+chisq.test(obsfreqindividualspasms)
+
+obsfreqindividualspasms <- matrix(c(1603,223726, 820,81247),nrow=2,ncol=2)
+chisq.test(obsfreqindividualspasms)
+
+
+obsfreqnightspasmscut <- matrix(c(53978,42805, 11432,11929, 289,144),nrow=2,ncol=3)
+chisq.test(obsfreqnightspasmscut)
+
+obsfreqnightspasmscut <- matrix(c(53978,42805, 289,144),nrow=2,ncol=2)
+chisq.test(obsfreqnightspasmscut)
+
+obsfreqnightspasmscut <- matrix(c(11432,11929, 289,144),nrow=2,ncol=2)
+chisq.test(obsfreqnightspasmscut)
+
+obsfreqnightspasmscut <- matrix(c(53978,42805, 11432,11929),nrow=2,ncol=2)
+chisq.test(obsfreqnightspasmscut)
+
+#making groups for ANOVA seizure data
+
+seizure_ISexclude1spasms=subset(seizure_IS, type_ISSpasmNum > 1)
+
+STanovaspasms <- data.frame("Spasms" = seizure_ISexclude1spasms$type_ISSpasmNum, "Group" = c(1))
+STunderoneanovaspasms <- data.frame("Spasms" = agelessoneexclude1spasm$type_ISSpasmNum, "Group" = c(2))
+Clinicalanovaspasms <- data.frame("Spasms" = importspasmsdata$TotalNumSpasmsWithout1s, "Group" = c(3))
+
+STanovaspasmscomparison <- rbind(STanovaspasms, STunderoneanovaspasms)
+fullanovaspasmscomparison <- rbind(STanovaspasmscomparison, Clinicalanovaspasms)
+table(fullanovaspasmscomparison$Group)
+
+spasmscomparison3groups <- aov(Spasms ~ Group, data = fullanovaspasmscomparison)
+summary(spasmscomparison3groups)
+kruskal.test(Spasms ~ Group, data = fullanovaspasmscomparison)
+
+Clinicaltounderonespasms <- rbind(Clinicalanovaspasms, STunderoneanovaspasms)
+spasmscomparison2groups <- aov(Spasms ~ Group, data = Clinicaltounderonespasms)
+summary(spasmscomparison2groups)
+t.test(importspasmsdata$TotalNumSpasmsWithout1s, agelessoneexclude1spasm$type_ISSpasmNum, na.rm=TRUE)
+kruskal.test(Spasms ~ Group, data = Clinicaltounderonespasms)
+
+Clinicaltowholespasms <- rbind(Clinicalanovaspasms, STanovaspasms)
+spasmscomparisongroups <- aov(Spasms ~ Group, data = Clinicaltowholespasms)
+summary(spasmscomparisongroups)
+t.test(importspasmsdata$TotalNumSpasmsWithout1s, seizure_ISexclude1spasms$type_ISSpasmNum, na.rm=TRUE)
+kruskal.test(Spasms ~ Group, data = Clinicaltowholespasms)
+
+t.test(seizure_ISexclude1spasms$type_ISSpasmNum, agelessoneexclude1spasm$type_ISSpasmNum, na.rm=TRUE)
+
+
+
+STanovaduration <- data.frame("Duration" = seizure_ISexclude0time$totaltime, "Group" = c(1))
+STunderoneanovaduration <- data.frame("Duration" = agelessoneexclude0time$totaltime, "Group" = c(2))
+Clinicalanovaduration <- data.frame("Duration" = importdurationdata$Duration.Seizure, "Group" = c(3))
+
+STanovadurationcomparison <- rbind(STanovaduration, STunderoneanovaduration)
+fullanovadurationcomparison <- rbind(STanovadurationcomparison, Clinicalanovaduration)
+table(fullanovadurationcomparison$Group)
+
+durationcomparison3groups <- aov(Duration ~ Group, data = fullanovadurationcomparison)
+summary(durationcomparison3groups)
+kruskal.test(Duration ~ Group, data = fullanovadurationcomparison)
+
+Clinicaltounderoneduration <- rbind(Clinicalanovaduration, STunderoneanovaduration)
+t.test(importdurationdata$Duration.Seizure, agelessoneexclude0time$totaltime, na.rm=TRUE)
+kruskal.test(Duration ~ Group, data = Clinicaltounderoneduration)
+
+Clinicaltowholeduration <- rbind(Clinicalanovaduration, STanovaduration)
+t.test(importdurationdata$Duration.Seizure, seizure_ISexclude1spasms$totaltime, na.rm=TRUE)
+kruskal.test(Duration ~ Group, data = Clinicaltowholeduration)

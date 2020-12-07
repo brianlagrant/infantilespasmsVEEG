@@ -69,11 +69,11 @@ ggspasmsclinicalpercent
 
 #code for comparisons to ST
 
-importspasms=subset(clinicalsample, TotalNumSpasmsWithout1s > 1)
-importspasms <- importspasms[,7]
+importspasmsdata=subset(clinicalsample, TotalNumSpasmsWithout1s > 1)
+importspasms <- importspasmsdata[,7]
 
-importduration=subset(clinicalsample, Duration.Seizure > 0)
-importduration <- importduration[,5]
+importdurationdata=subset(clinicalsample, Duration.Seizure > 0)
+importduration <- importdurationdata[,5]
 
 #daynight
 nightsubset=subset(clinicalsample, X11pm.7am==1)
@@ -142,6 +142,122 @@ table(clinicalspasmscut$HourOnset)
 importnight <- spasms[,10]
 importnightcut <- spasms[,10]
 
+#making percent of patients with at least one spasm at each hour
+
+spasms$spasmsnum
+spasms$spasmsnum <- 1
+
+spasmsbyhourbypatient <- spasms %>% group_by(spasms$ID, HourOnset) %>% summarise(spasmnum = sum(spasmsnum))
+spasmsbyhourbypatient <- spasmsbyhourbypatient %>% 
+  rename(
+   ID = "spasms$ID"
+  )
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==0)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==1)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==2)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==3)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==4)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==5)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==6)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==7)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==8)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==9)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==10)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==11)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==12)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==13)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==14)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==15)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==16)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==17)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==18)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==19)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==20)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==21)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==22)
+length(unique(spasmsbyhourtime0patient$ID))
+
+spasmsbyhourtime0patient=subset(spasmsbyhourbypatient, HourOnset==23)
+length(unique(spasmsbyhourtime0patient$ID))
+
+percentatleast1spasmbyhourpatient <- data.table(c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23), c(2,5,6,2,3,1,4,3,3,0,0,0,0,0,0,0,1,1,3,4,2,2,3,2))
+percentatleast1spasmbyhourpatient$Percentage=((percentatleast1spasmbyhourpatient$V2)/9)
+
+percentatleast1spasmbyhourpatient$HourChanged
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==12] <- 0
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==13] <- 1
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==14] <- 2
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==15] <- 3
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==16] <- 4
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==17] <- 5
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==18] <- 6
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==19] <- 7
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==20] <- 8
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==21] <- 9
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==22] <- 10
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==23] <- 11
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==0] <- 12
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==1] <- 13
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==2] <- 14
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==3] <- 15
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==4] <- 16
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==5] <- 17
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==6] <- 18
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==7] <- 19
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==8] <- 20
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==9] <- 21
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==10] <- 22
+percentatleast1spasmbyhourpatient$HourChanged[percentatleast1spasmbyhourpatient$V1==11] <- 23
+
+ggspasmshourpercentbypatient <- ggplot(data = percentatleast1spasmbyhourpatient, aes(x=HourChanged, y=Percentage)) + geom_bar(stat="identity", fill = rgb(0,.46,.75), alpha = 0.8, color="black") + labs(title="Proportion with at Least One Spasm", y="Proportion", x = "Hour of day") + theme_bw() + scale_y_continuous(lim = c(0,0.8)) + scale_x_continuous(breaks = c(-1,5,11,17,24), labels=c("12", "18",  "0", "6", "12"))
+ggspasmshourpercentbypatient <- ggspasmshourpercentbypatient + theme(text = element_text(size=42)) + geom_rect(xmin=-1, xmax=3.5, ymin=0, ymax=1, fill='gray', alpha = 0.01) + geom_rect(xmin=20.5, xmax=23.9, ymin = 0, ymax  = 1, fill = 'gray', alpha =0.01)
+ggspasmshourpercentbypatient
+
 #making individual spasms dataset
 ClinicalSpasmsIndividual <- data.frame("Number" = 1:465, "Individual" = c(0))
 ClinicalSpasmsIndividual2 <- data.frame("Number" = 466:535, "Individual" = c(1))
@@ -196,7 +312,7 @@ spasms$HourOnset2[spasms$HourOnset==11] <- 23
 
 gghourclinicalpercent <- ggplot(data = spasms, aes(spasms$HourOnset2)) + geom_histogram(aes(y=..count../sum(..count..)), breaks=seq(-1,24, by=1), col="black", fill=rgb(0,.46,.75), alpha = 0.8) + labs(title="Spasms by Hour of Day", y="Relative frequency", x = "Hour of day") + theme_bw()
 gghourclinicalpercent <- gghourclinicalpercent + scale_x_continuous(breaks = c(-1,5,11,17,24), labels=c("12", "18",  "0", "6", "12"))
-gghourclinicalpercent <- gghourclinicalpercent + theme(text = element_text(size=42)) + scale_y_continuous(lim = c(0,0.15), labels = scales::percent)
+gghourclinicalpercent <- gghourclinicalpercent + theme(text = element_text(size=42)) + scale_y_continuous(lim = c(0,0.15), labels = scales::percent) +  geom_rect(data=NULL,aes(xmin=0,xmax=2.9,ymin=0,ymax=0.15), fill="gray90") + geom_rect(data=NULL,aes(xmin=20.1,xmax=24,ymin=0,ymax=0.15), fill="gray90")
 gghourclinicalpercent
 
 
@@ -338,3 +454,4 @@ spasmshistocombined
 
 #calculating SE for error bars
 #using (p(1-p)/n)^.5 then multiply by 1.96 for CI
+
